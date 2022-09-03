@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>如何将前端自动化测试 CI 从60分种缩短至 20分钟 | Do Things</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="shortcut icon" href="https://litesun.github.io/favicon.ico?v=1662199039072">
+<link rel="stylesheet" href="https://litesun.github.io/styles/main.css">
+
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+
+
+    <meta name="description" content="背景
+在 《使用 Cypress 让产品持续稳定交付》 和 《使用 Cypress 获取前端测试覆盖率》 两篇文章中，介绍了 API7 团队如何使用 Cypress 自动化测试来持续快速迭代稳定的产品交付给用户。在历时近 8 个月的产品迭代..." />
+    <meta name="keywords" content="" />
+  </head>
+  <body>
+    <div id="app" class="main">
+
+      <div class="sidebar" :class="{ 'full-height': menuVisible }">
+  <div class="top-container" data-aos="fade-right">
+    <div class="top-header-container">
+      <a class="site-title-container" href="https://litesun.github.io">
+        <img src="https://litesun.github.io/images/avatar.png?v=1662199039072" class="site-logo">
+        <h1 class="site-title">Do Things</h1>
+      </a>
+      <div class="menu-btn" @click="menuVisible = !menuVisible">
+        <div class="line"></div>
+      </div>
+    </div>
+    <div>
+      
+        
+          <a href="/" class="site-nav">
+            首页
+          </a>
+        
+      
+        
+          <a href="/archives" class="site-nav">
+            归档
+          </a>
+        
+      
+        
+          <a href="/tags" class="site-nav">
+            标签
+          </a>
+        
+      
+        
+          <a href="/post/about" class="site-nav">
+            关于
+          </a>
+        
+      
+    </div>
+  </div>
+  <div class="bottom-container" data-aos="flip-up" data-aos-offset="0">
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+    <div class="site-description">
+      温故而知新
+    </div>
+    <div class="site-footer">
+      Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://litesun.github.io/atom.xml" target="_blank">RSS</a>
+    </div>
+  </div>
+</div>
+
+
+      <div class="main-container">
+        <div class="content-container" data-aos="fade-up">
+          <div class="post-detail">
+            <h2 class="post-title">如何将前端自动化测试 CI 从60分种缩短至 20分钟</h2>
+            <div class="post-date">2021-11-14</div>
+            
+            <div class="post-content" v-pre>
+              <h3 id="背景">背景</h3>
+<p>在 <a href="https://www.apiseven.com/zh/blog/stable-product-delivery-with-cypress">《使用 Cypress 让产品持续稳定交付》</a> 和 <a href="https://www.apiseven.com/zh/blog/get-front-end-test-coverage-with-cypress">《使用 Cypress 获取前端测试覆盖率》</a> 两篇文章中，介绍了 API7 团队如何使用 Cypress 自动化测试来持续快速迭代稳定的产品交付给用户。在历时近 8 个月的产品迭代后，API7 Dashboard 前端测试场景的数量由 49 已经激增到了 364！ 一方面，测试场景的增多使得产品有质量保障。另一方面，随着测试案例的增多，前端自动化测试的时间也在不断增多，长时间的自动化测试已经严重影响到了团队效能，影响迭代效率，减少前端 CI 运行时间迫在眉睫！</p>
+<h3 id="分析">分析</h3>
+<p>要想减少前端 CI 的运行时间，首先就要分析现有的 CI 的时间都花在哪里。<br>
+<img src="https://user-images.githubusercontent.com/31329157/144389342-e626ea95-ffa2-4174-963a-67a298f4d88f.png" alt="image" loading="lazy"><br>
+经过分析，如上图所示，耗费较多的时间为 build 前后端产物（耗时11分钟）和运行前端测试（耗时40~50分钟），我们准备先对 build 前后端产物这一环节进行优化。</p>
+<h3 id="利用-github-action-缓存前后端构建产物">利用 Github action 缓存前后端构建产物</h3>
+<p>通过翻阅 Github Action 的文档发现，Github Action 提供<a href="https://github.com/actions/cache">缓存</a>能力，这就使缓存前后端构建产物成为可能。<br>
+缓存策略可以很好的应用到如下两种情况：</p>
+<ul>
+<li>对于一些文档、测试案例的修改等不需要重修构建产物的 PR。</li>
+<li>由于网络、测试不稳定等种种原因会导致测试案例不太稳定而引起的 CI 失败。</li>
+</ul>
+<p>最终，命中缓存策略的PR进行 CI 测试后，将构建前后端产物需要用10分钟压缩到3分钟左右，整体时间减少7分钟。<br>
+<img src="https://user-images.githubusercontent.com/31329157/144392431-5f755d05-83ea-4f01-a659-125cf20c6987.png" alt="image" loading="lazy"></p>
+<h3 id="利用多个-workflow-以减少-ci-运行时间">利用多个 workflow 以减少 CI 运行时间</h3>
+<p>利用 Github action 缓存前后端构建产物可以减少 CI 大约7分钟左右运行时间，有效但这是远远不够的。解决了构建时间的问题，我们把目光放到了耗时较长的另一环节-运行前端测试（需要40~50分钟）<br>
+我们最开始用了比较粗暴的的方式将所有的测试案例拆分成两份。<br>
+例如，我们跑测试需要花费50分钟左右的时间，我们通过分析将测试文件分为两组，建立两个 workfollow 文件分开跑两组测试，并且尽可能的让两组的时间保持一致。通过这种手工并行跑测试方式，理论上可以将跑的测试的时间压缩至25分钟左右。经过试验，这种方式可以将我们的CI时间由 50 分钟的时间压缩至 30~40分钟左右，具体的流程图如下图所示：<br>
+<img src="https://user-images.githubusercontent.com/31329157/144393542-58114605-55f7-42e1-89c5-65a527432644.png" alt="image" loading="lazy"></p>
+<p>这种方式可以减少10分钟的时间但有一些弊端：</p>
+<ul>
+<li>当测试案例不断增多的时候，需要人工不断的去分析两组的测试时间，人工操作很有可能漏掉测试。如下图所示，由于测试案例的增多，我们不得不人工的维护了三组测试案例。<br>
+<img src="https://user-images.githubusercontent.com/31329157/141673432-6ee59bac-f8be-4290-bce3-b97261b90a3f.png" alt="image" loading="lazy"></li>
+<li>两个 workflow 的构建前后端过程相互独立，没能很好的复用起来，浪费计算资源</li>
+</ul>
+<p>有效但不够优雅。</p>
+<h3 id="尝试并发">尝试并发</h3>
+<p>经过分析，如果需要测试并发🈶运行需要解决两个问题</p>
+<ul>
+<li>
+<p>问题一：解决账号互踢问题<br>
+由于企业版的后端服务账户的策略为一个用户的在线状态只能有一个，当A用户登录后后面又重新登录就会导致最先登录的用户下线。如果想要并发的跑测试，就必须解决账号互踢的问题。经过翻阅GitHub Action 的文档得知每个job之间的状态互相隔离，那么解决这个问题的思路就变的简单了，以5个（job）测试并发为例，只需要对 5 个 job 分别起一套后端服务即可, 具体工作流如下图所示。<br>
+<img src="https://user-images.githubusercontent.com/31329157/144752662-19a1f5ed-d73d-4a2b-9bb2-fe184c0cf4f2.png" alt="image" loading="lazy"></p>
+</li>
+<li>
+<p>问题二：解决调度问题分配测试<br>
+想要并发的跑测试，要将并发的 test runner 统一调度起来。通过调研，我们惊喜的发现 <a href="https://sorry-cypress.dev/">sorry-cypress</a> 的具备调度测试案例的能力，并且支持私有化部署。</p>
+</li>
+</ul>
+<p>简单介绍下 sorry-cypress 的工作原理。</p>
+<pre><code>cy2 run --record --key XXX --parallel --ci-build-id `date +%s`
+</code></pre>
+<p>以我们开个5个终端、使用同一个 ci-build-id 为例，这个 5 个终端输入上面的命令后可以通过 sorry-cypress 的调度能力就可知道当前 ci-build-id 下哪些已经是跑过的测试，哪些测试是正在进行中的，哪些是未开始跑的测试。通过 API 的调度，将未开始跑的测试随机分配给 5 个终端的 test runner，直至所有测试跑完为止。</p>
+<p>sorry-cypress 除了具备并发跑测试外，还具备：</p>
+<ul>
+<li>在线回看测试的视频日志</li>
+<li>当有测试出现不稳定需要重新跑测试时，支持仅 rerun 挂掉的测试</li>
+</ul>
+<p>最终的流程图如下图所示：</p>
+<figure data-type="image" tabindex="1"><img src="https://user-images.githubusercontent.com/31329157/144753373-6e2c7f64-e418-44eb-92b2-a5743fe4e269.png" alt="image" loading="lazy"></figure>
+<p>通过并发跑测试的方式，最终将整体的时间压缩到20分钟左右，如下图所示：<br>
+<img src="https://user-images.githubusercontent.com/31329157/141673664-3b663f9e-73dc-412b-be4d-a644b6a6f1cd.png" alt="image" loading="lazy"></p>
+<h1 id="总结">总结</h1>
+<p><img src="https://user-images.githubusercontent.com/31329157/144775028-7996e18b-bd03-4158-9675-12dcbe0282ab.png" alt="image" loading="lazy"><br>
+通过一步一步分析，通过缓存构建产物、多 workflow 分开跑测试、使用 sorry-cypress 并发跑测试，最终将前端 CI 的时间从60分钟左右降低到20分钟左右，节省了CI运行时间的同时也提升了开发同学的效率。如果你正在使用 cypress 而且运行测试时间的问题所困扰，试试 sorry-cypress 吧！</p>
+
+            </div>
+            
+            
+              <div class="next-post">
+                <div class="next">下一篇</div>
+                <a href="https://litesun.github.io/post/shi-yong-cypress-huo-qu-qian-duan-ce-shi-fu-gai-lu/">
+                  <h3 class="post-title">
+                    使用 Cypress 获取前端测试覆盖率
+                  </h3>
+                </a>
+              </div>
+            
+
+            
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+<script type="application/javascript">
+
+AOS.init();
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    menuVisible: false,
+  },
+})
+
+</script>
+
+
+
+
+
+
+  </body>
+</html>

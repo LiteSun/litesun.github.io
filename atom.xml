@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://litesun.github.io</id>
+    <title>Do Things</title>
+    <updated>2022-09-03T10:04:50.406Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://litesun.github.io"/>
+    <link rel="self" href="https://litesun.github.io/atom.xml"/>
+    <subtitle>温故而知新</subtitle>
+    <logo>https://litesun.github.io/images/avatar.png</logo>
+    <icon>https://litesun.github.io/favicon.ico</icon>
+    <rights>All rights reserved 2022, Do Things</rights>
+    <entry>
+        <title type="html"><![CDATA[如何将前端自动化测试 CI 从60分种缩短至 20分钟]]></title>
+        <id>https://litesun.github.io/post/li-shi-liang-zhou-wo-shi-ru-he-jiang-qian-duan-zi-dong-hua-ce-shi-ci-you-60-fen-suo-duan-zhi-20-fen-zhong/</id>
+        <link href="https://litesun.github.io/post/li-shi-liang-zhou-wo-shi-ru-he-jiang-qian-duan-zi-dong-hua-ce-shi-ci-you-60-fen-suo-duan-zhi-20-fen-zhong/">
+        </link>
+        <updated>2021-11-14T07:03:45.000Z</updated>
+        <content type="html"><![CDATA[<h3 id="背景">背景</h3>
+<p>在 <a href="https://www.apiseven.com/zh/blog/stable-product-delivery-with-cypress">《使用 Cypress 让产品持续稳定交付》</a> 和 <a href="https://www.apiseven.com/zh/blog/get-front-end-test-coverage-with-cypress">《使用 Cypress 获取前端测试覆盖率》</a> 两篇文章中，介绍了 API7 团队如何使用 Cypress 自动化测试来持续快速迭代稳定的产品交付给用户。在历时近 8 个月的产品迭代后，API7 Dashboard 前端测试场景的数量由 49 已经激增到了 364！ 一方面，测试场景的增多使得产品有质量保障。另一方面，随着测试案例的增多，前端自动化测试的时间也在不断增多，长时间的自动化测试已经严重影响到了团队效能，影响迭代效率，减少前端 CI 运行时间迫在眉睫！</p>
+<h3 id="分析">分析</h3>
+<p>要想减少前端 CI 的运行时间，首先就要分析现有的 CI 的时间都花在哪里。<br>
+<img src="https://user-images.githubusercontent.com/31329157/144389342-e626ea95-ffa2-4174-963a-67a298f4d88f.png" alt="image" loading="lazy"><br>
+经过分析，如上图所示，耗费较多的时间为 build 前后端产物（耗时11分钟）和运行前端测试（耗时40~50分钟），我们准备先对 build 前后端产物这一环节进行优化。</p>
+<h3 id="利用-github-action-缓存前后端构建产物">利用 Github action 缓存前后端构建产物</h3>
+<p>通过翻阅 Github Action 的文档发现，Github Action 提供<a href="https://github.com/actions/cache">缓存</a>能力，这就使缓存前后端构建产物成为可能。<br>
+缓存策略可以很好的应用到如下两种情况：</p>
+<ul>
+<li>对于一些文档、测试案例的修改等不需要重修构建产物的 PR。</li>
+<li>由于网络、测试不稳定等种种原因会导致测试案例不太稳定而引起的 CI 失败。</li>
+</ul>
+<p>最终，命中缓存策略的PR进行 CI 测试后，将构建前后端产物需要用10分钟压缩到3分钟左右，整体时间减少7分钟。<br>
+<img src="https://user-images.githubusercontent.com/31329157/144392431-5f755d05-83ea-4f01-a659-125cf20c6987.png" alt="image" loading="lazy"></p>
+<h3 id="利用多个-workflow-以减少-ci-运行时间">利用多个 workflow 以减少 CI 运行时间</h3>
+<p>利用 Github action 缓存前后端构建产物可以减少 CI 大约7分钟左右运行时间，有效但这是远远不够的。解决了构建时间的问题，我们把目光放到了耗时较长的另一环节-运行前端测试（需要40~50分钟）<br>
+我们最开始用了比较粗暴的的方式将所有的测试案例拆分成两份。<br>
+例如，我们跑测试需要花费50分钟左右的时间，我们通过分析将测试文件分为两组，建立两个 workfollow 文件分开跑两组测试，并且尽可能的让两组的时间保持一致。通过这种手工并行跑测试方式，理论上可以将跑的测试的时间压缩至25分钟左右。经过试验，这种方式可以将我们的CI时间由 50 分钟的时间压缩至 30~40分钟左右，具体的流程图如下图所示：<br>
+<img src="https://user-images.githubusercontent.com/31329157/144393542-58114605-55f7-42e1-89c5-65a527432644.png" alt="image" loading="lazy"></p>
+<p>这种方式可以减少10分钟的时间但有一些弊端：</p>
+<ul>
+<li>当测试案例不断增多的时候，需要人工不断的去分析两组的测试时间，人工操作很有可能漏掉测试。如下图所示，由于测试案例的增多，我们不得不人工的维护了三组测试案例。<br>
+<img src="https://user-images.githubusercontent.com/31329157/141673432-6ee59bac-f8be-4290-bce3-b97261b90a3f.png" alt="image" loading="lazy"></li>
+<li>两个 workflow 的构建前后端过程相互独立，没能很好的复用起来，浪费计算资源</li>
+</ul>
+<p>有效但不够优雅。</p>
+<h3 id="尝试并发">尝试并发</h3>
+<p>经过分析，如果需要测试并发🈶运行需要解决两个问题</p>
+<ul>
+<li>
+<p>问题一：解决账号互踢问题<br>
+由于企业版的后端服务账户的策略为一个用户的在线状态只能有一个，当A用户登录后后面又重新登录就会导致最先登录的用户下线。如果想要并发的跑测试，就必须解决账号互踢的问题。经过翻阅GitHub Action 的文档得知每个job之间的状态互相隔离，那么解决这个问题的思路就变的简单了，以5个（job）测试并发为例，只需要对 5 个 job 分别起一套后端服务即可, 具体工作流如下图所示。<br>
+<img src="https://user-images.githubusercontent.com/31329157/144752662-19a1f5ed-d73d-4a2b-9bb2-fe184c0cf4f2.png" alt="image" loading="lazy"></p>
+</li>
+<li>
+<p>问题二：解决调度问题分配测试<br>
+想要并发的跑测试，要将并发的 test runner 统一调度起来。通过调研，我们惊喜的发现 <a href="https://sorry-cypress.dev/">sorry-cypress</a> 的具备调度测试案例的能力，并且支持私有化部署。</p>
+</li>
+</ul>
+<p>简单介绍下 sorry-cypress 的工作原理。</p>
+<pre><code>cy2 run --record --key XXX --parallel --ci-build-id `date +%s`
+</code></pre>
+<p>以我们开个5个终端、使用同一个 ci-build-id 为例，这个 5 个终端输入上面的命令后可以通过 sorry-cypress 的调度能力就可知道当前 ci-build-id 下哪些已经是跑过的测试，哪些测试是正在进行中的，哪些是未开始跑的测试。通过 API 的调度，将未开始跑的测试随机分配给 5 个终端的 test runner，直至所有测试跑完为止。</p>
+<p>sorry-cypress 除了具备并发跑测试外，还具备：</p>
+<ul>
+<li>在线回看测试的视频日志</li>
+<li>当有测试出现不稳定需要重新跑测试时，支持仅 rerun 挂掉的测试</li>
+</ul>
+<p>最终的流程图如下图所示：</p>
+<figure data-type="image" tabindex="1"><img src="https://user-images.githubusercontent.com/31329157/144753373-6e2c7f64-e418-44eb-92b2-a5743fe4e269.png" alt="image" loading="lazy"></figure>
+<p>通过并发跑测试的方式，最终将整体的时间压缩到20分钟左右，如下图所示：<br>
+<img src="https://user-images.githubusercontent.com/31329157/141673664-3b663f9e-73dc-412b-be4d-a644b6a6f1cd.png" alt="image" loading="lazy"></p>
+<h1 id="总结">总结</h1>
+<p><img src="https://user-images.githubusercontent.com/31329157/144775028-7996e18b-bd03-4158-9675-12dcbe0282ab.png" alt="image" loading="lazy"><br>
+通过一步一步分析，通过缓存构建产物、多 workflow 分开跑测试、使用 sorry-cypress 并发跑测试，最终将前端 CI 的时间从60分钟左右降低到20分钟左右，节省了CI运行时间的同时也提升了开发同学的效率。如果你正在使用 cypress 而且运行测试时间的问题所困扰，试试 sorry-cypress 吧！</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[使用 Cypress 获取前端测试覆盖率]]></title>
+        <id>https://litesun.github.io/post/shi-yong-cypress-huo-qu-qian-duan-ce-shi-fu-gai-lu/</id>
+        <link href="https://litesun.github.io/post/shi-yong-cypress-huo-qu-qian-duan-ce-shi-fu-gai-lu/">
+        </link>
+        <updated>2021-07-04T02:53:43.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="背景">背景</h2>
+<p>在<a href="./stable-product-delivery-with-cypress">《使用 Cypress 让产品持续稳定交付》</a>文章中，我们讨论了为什么选用 Cypress 作为 E2E 测试框架。在花了近两个月时间完善测试案例后，我们需要测试覆盖率来量化测试覆盖是否足够。本文将介绍如何使用 Cypress 获取 APISIX Dashboard 前端 E2E 覆盖率。</p>
+<h2 id="什么是代码覆盖率">什么是代码覆盖率</h2>
+<p>代码覆盖是软件测试中的一种度量，描述程序中源代码被测试的比例和程度，所得比例称为代码覆盖率。测试代码覆盖率一定程度上反映了代码的健康程度。</p>
+<h2 id="安装依赖配置">安装依赖&amp;配置</h2>
+<p>想要收集测试覆盖数据，我们需要将原有的业务代码放一些探针以供 Cypress 收集数据。</p>
+<p>Cypress 官方推荐两种方式，第一种是通过 nyc 生成临时目录，把已经写入探针的代码运行起来以收集测试覆盖数据。第二种方法是通过代码转换管道实时做代码转换，这就少去了临时文件夹烦恼，使得收集测试覆盖率数据比较清爽。我们选择第二种方式收集前端 E2E 覆盖率。</p>
+<ol>
+<li>安装依赖</li>
+</ol>
+<pre><code class="language-shell">yarn add  babel-plugin-istanbul --dev
+</code></pre>
+<ol start="2">
+<li>安装 cypress 插件</li>
+</ol>
+<pre><code class="language-shell">yarn add  @cypress/code-coverage --dev
+</code></pre>
+<ol start="3">
+<li>配置 babel</li>
+</ol>
+<pre><code class="language-ts">// web/config/config.ts
+extraBabelPlugins: [
+    ['babel-plugin-istanbul',  {
+      &quot;exclude&quot;: [&quot;**/.umi&quot;, &quot;**/locales&quot;]
+    }],
+  ],
+</code></pre>
+<ol start="4">
+<li>配置 Cypress code coverage 插件</li>
+</ol>
+<pre><code class="language-javaScript">// web/cypress/plugins/index.js
+module.exports = (on, config) =&gt; {
+  require('@cypress/code-coverage/task')(on, config);
+  return config;
+};
+</code></pre>
+<pre><code class="language-javaScript">// web/cypress/support/index.js
+import '@cypress/code-coverage/support';
+</code></pre>
+<ol start="5">
+<li>获取测试覆盖率</li>
+</ol>
+<p>配置完毕后，需要我们运行测试案例，在测试案例运行结束后，Cypress 会生成 coverage 和<br>
+.nyc_output  文件夹，里面包含测试覆盖率的报告。</p>
+<figure data-type="image" tabindex="1"><img src="https://lh4.googleusercontent.com/o-tyQagmCjprpNkuTjMFLaALZKtW4pyC9nj-GcPx4MM3xK0zrMED9Nndk5ZmZkZsQ5SIJPEovcrHyjWP2YXtEcYYDpLL49aV_97N83doTkOuMXlFsVjGu53A9FdlxOCr6i3aIDTA" alt="1.png" loading="lazy"></figure>
+<p>执行下面的命令后测试覆盖率信息会出现在控制台。</p>
+<pre><code class="language-shell">npx nyc report --reporter=text-summary
+</code></pre>
+<figure data-type="image" tabindex="2"><img src="https://lh4.googleusercontent.com/n0CON1WF64wEnh3IYEc3wwwOJ2Ft_WmMLfkhOPKIKxoW0NP6Eq8VplJ87EepL5zIWOeyfJhlDmhc3ImE0ivgRlXWe1RuW2x7vL_JEri7Mz6b3tOY0it8bVvUe83CAHNgeoyXZnsy" alt="2.png" loading="lazy"></figure>
+<p>在coverage 目录下，会有更详细的报告网页，如图所示：</p>
+<figure data-type="image" tabindex="3"><img src="https://lh4.googleusercontent.com/skjR9YUcbmeytfoYnR0it7Vfc7mheCJDt7PSUsp549IbOdfqskTrIOqUXw01e0fnuNwpGoo3GtqAER3eQjNoTIdmU7HY6hc_sZ5NYc3h-MyxqmVz_NaC3AM-J4rWJFy-9IoTWjpn" alt="3.png" loading="lazy"></figure>
+<ul>
+<li>
+<p>Statements 表示是否每个语句都执行了</p>
+</li>
+<li>
+<p>Branchs 表示是否每个if代码块都执行了</p>
+</li>
+<li>
+<p>Functions 表示是否每个函数都调用了</p>
+</li>
+<li>
+<p>Lines 表示是否每一行都执行了</p>
+</li>
+</ul>
+<h2 id="总结">总结</h2>
+<p>测试覆盖率的高低一定程度上反映了项目的质量。目前 APISIX Dashboard 前端 E2E 覆盖率已经达到了 71.57%, 我们将持续协同社区，继续增强测试覆盖率，为用户提供更可靠稳定的产品。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[使用 Cypress 让产品持续稳定交付]]></title>
+        <id>https://litesun.github.io/post/shi-yong-cypress-rang-chan-pin-chi-xu-wen-ding-jiao-fu/</id>
+        <link href="https://litesun.github.io/post/shi-yong-cypress-rang-chan-pin-chi-xu-wen-ding-jiao-fu/">
+        </link>
+        <updated>2021-07-04T02:50:49.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="背景">背景</h2>
+<p>Apache APISIX Dashboard 的设计是为了让用户通过前端界面尽可能方便地操作 Apache APISIX。从项目初始化到现在，已经有 552 commits、发布了 10 个版本。在如此之快的产品迭代过程中，确保开源产品质量显的尤为重要。为此，我们引入了 E2E 测试模块以确保稳定的产品交付。</p>
+<h2 id="什么是前端-e2e">什么是前端 E2E</h2>
+<p>E2E，是“End to End”的缩写，可以翻译成“端到端”测试。它模仿用户操作行为，从某个入口开始，逐步执行操作，直到完成某项工作。完善的测试可以防止代码改动时破坏原有的逻辑。</p>
+<h2 id="为什么选择-cypress">为什么选择 Cypress</h2>
+<p>我们在选型调研期分别使用 Taiko、Puppeteer、TestCafe 、Cypress 书写创建路由的测试案例，通过使用每个测试框架书写案例，来体会其各自的特点。</p>
+<p>Taiko 的特点是具有 smart selector, 可以根文字内容、位置关系智能定位想要操作的元素 ，上手成本也比较低，能够很快的完成测试案例。但是，在书写测试案例时并不友好，当用户误操作退出终端后，所书写的测试案例也全部丢失。如果想要完整地运行测试案例，还需要配合其它的 test runner 一起使用，这无疑又增加了用户的学习成本。</p>
+<p>Puppeteer 具有最好的性能表现。但是，测试并不是 Puppeteer 的重点。它被广泛用于网页爬虫。我们的项目起初使用的是 Ant Design 官方推荐的 E2E 测试框架即 Puppeteer ，使用了一段时间后发现 Puppeteer 对非前端开发者不是那么友好，很难让其他用户参与进来。当用户编写测试案例时，缺少智能元素定位的功能加持使得用户学习曲线很高。</p>
+<p>TestCafe 的安装简单程度令人惊喜，它具有内置的等待机制，用户不用主动的去 sleep 等待页面交互，并且支持多浏览器并发测试，这对多浏览器兼容性测试很有帮助。缺点是它的调试过程并不是那么友好，每次测试案例更改后都要从新跑一遍用例。对于开发人员而言，要有一定的 Javascript 语法基础。其次，它的运行速度相对于其它几个框架而言比较慢，尤其是执行 withText() 查找元素时。</p>
+<p>综合比较后，我们最终选用了 Cypress 作为我们的前端 E2E 框架，列出四点主要原因：</p>
+<ol>
+<li>语法简单</li>
+</ol>
+<p>Cypress 测试所使用的语法非常简单，而且容易阅读和书写。稍加练习后，就能掌握创建测试案例，这对于开源项目来说是很重要的，因为这样可以让社区里有兴趣参加 E2E 测试案例的用户以最低的学习成本参与到书写测试案例中。</p>
+<ol start="2">
+<li>易于调试</li>
+</ol>
+<p>在调试测试用例时，我们可以使用 Cypress 的 Test Runner。Test Runner 可以展示多维度的数据，通过这些信息，我们可以快速定位到问题所在。</p>
+<ul>
+<li>展示用例执行状态，包括成功、失败、运行中的个数；</li>
+<li>展示整个测试集执行的总时间；</li>
+<li>内置 Selector Playground 可以帮助定位元素；</li>
+<li>展示了每一个用例的每一个执行步骤，并形成快照，在执行完毕后，可以把每一个执行步骤的信息展示出来；</li>
+</ul>
+<ol start="3">
+<li>社区活跃</li>
+</ol>
+<p>Cypress 有一个庞大的用户社区，社区里面总是有很多人在分享他们的经验和主意。</p>
+<p>这在遇到问题时很有帮助，你很有可能遇到别人在之前就已经遇到的问题。另外，当有新的功能需求时，我们也可以参与到社区，通过讨论，把自己想加入的特性加入到 Cypress 中，就像我们 Apache APISIX 社区做的事一样：听取社区的意见并反哺社区。</p>
+<ol start="4">
+<li>文档清晰</li>
+</ol>
+<p>Cypress 的文档结构更加清晰全面。在使用初期，我们根据官方文档指引很快的就能把 Cypress 引入到我们的项目中并书写第一个案例。此外，在其文档站中，有大量的文档可供参阅，这会给用户很好的指引，会让用户知道怎么样做才是最好的实践。</p>
+<h2 id="cypress-与-apisix-dashboard">Cypress 与 APISIX Dashboard</h2>
+<p>目前 APISIX Dashboard 已经书写 49 个测试案例。我们在 GitHub Action 中配置对应的 CI，确保每次合并代码前测试通过以保证代码质量。我们参考 Cypress 的最佳实践并结合我们的项目，和大家分享一下 Cypress 在 APISIX Dashboard 的使用。</p>
+<figure data-type="image" tabindex="1"><img src="https://api7-website-1301662268.file.myqcloud.com/202102/apisix-dashboard-e2e.gif" alt="图片" loading="lazy"></figure>
+<figure data-type="image" tabindex="2"><img src="https://static.apiseven.com/202102/image.png" alt="图片" loading="lazy"></figure>
+<ol>
+<li>常用的功能封装成命令。</li>
+</ol>
+<p>以登录为例，登录是进入系统必不可少的环节, 我们把登录环节封装成命令，这样，在每次运行案例之前，进行登录命令调用。</p>
+<pre><code class="language-javascript">Cypress.Commands.add(&quot;login&quot;, () =&gt; {
+  cy.request(
+    &quot;POST&quot;,
+    'http://127.0.0.1/apisix/admin/user/login',
+    {
+      username: &quot;user&quot;,
+      password: &quot;user&quot;,
+    }
+  ).then((res) =&gt; {
+    expect(res.body.code).to.equal(0);
+    localStorage.setItem(&quot;token&quot;, res.body.data.token);
+  });
+});
+</code></pre>
+<pre><code class="language-javascript">beforeEach(() =&gt; {
+  // init login
+  cy.login();
+});
+</code></pre>
+<ol start="2">
+<li>将 selector 和 data 提取成公共变量。</li>
+</ol>
+<p>为了让用户更直观理解测试代码的含义，我们将 selector 和 data 抽成公共变量。</p>
+<pre><code class="language-javascript">const data = {
+  name: &quot;hmac-auth&quot;,
+  deleteSuccess: &quot;Delete Plugin Successfully&quot;,
+};
+const domSelector = {
+  tableCell: &quot;.ant-table-cell&quot;,
+  empty: &quot;.ant-empty-normal&quot;,
+  refresh: &quot;.anticon-reload&quot;,
+  codemirror: &quot;.CodeMirror&quot;,
+  switch: &quot;#disable&quot;,
+  deleteBtn: &quot;.ant-btn-dangerous&quot;,
+};
+</code></pre>
+<ol start="3">
+<li>移除 cy.wait(someTime)</li>
+</ol>
+<p>我们在使用 Cypress 的前期使用 cy.wait(someTime)，但在使用中发现，cy.wait(someTime) 过度依赖网络环境以及测试机器的性能，当网络环境或者机器性能差时，会导致测试案例报错。推荐的做法是配合 cy.intercept() 使用以明确指定需要等待的网络资源。</p>
+<pre><code class="language-javascript">cy.intercept('https://apisix.apache.org/').as('fetchURL');
+cy.wait('@fetchURL');
+</code></pre>
+<h2 id="总结">总结</h2>
+<p>目前 APISIX Dashboard 已经书写 49 个测试案例。未来，我们将持续增强前端 E2E 覆盖率，在社区中约定每次提交新的特性或者 bugfix 都需要书写对应的测试案例以保证产品的稳定性。</p>
+<p>欢迎大家加入我们一起打磨世界级的网关产品。</p>
+<p>项目地址：<a href="https://github.com/apache/apisix-dashboard">https://github.com/apache/apisix-dashboard</a></p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[你好，世界]]></title>
+        <id>https://litesun.github.io/post/ni-hao-shi-jie/</id>
+        <link href="https://litesun.github.io/post/ni-hao-shi-jie/">
+        </link>
+        <updated>2021-07-03T06:53:29.000Z</updated>
+        <content type="html"><![CDATA[<p>🙌🙌此站点主要用户记录开发过程中一些坑以及偶尔碎碎念</p>
+]]></content>
+    </entry>
+</feed>
